@@ -1,17 +1,27 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import Response
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
+import os
 import io
 
 app = FastAPI()
+
+API_KEY = os.getenv("API_KEY")
+
+def check_api_key(request: Request):
+    key = request.headers.get("x-api-key")
+    if not key or key != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
 
 @app.get("/health")
 def health():
     return {"ok": True}
 
 @app.post("/generate")
-def generate(data: dict):
+async def generate(request: Request, data: dict):
+    check_api_key(request)
+
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
 
@@ -27,5 +37,7 @@ def generate(data: dict):
     c.showPage()
     c.save()
 
-    pdf_bytes = buffer.getvalue()
-    return Response(content=pdf_bytes, media_type="application/pdf")
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/pdf"
+    )
